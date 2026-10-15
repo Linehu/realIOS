@@ -8,3 +8,7 @@ CODE/kernel/*.tar.gz
 SYSTEM/realIOS/apikey.txt
 apikey.txt
 *.img
+SYSTEM/trans/usr/
+SYSTEM/trans/lib/
+SYSTEM/trans/etc/
+SYSTEM/trans/.cc-stamp

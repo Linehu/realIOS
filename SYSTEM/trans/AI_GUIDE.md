@@ -6,8 +6,8 @@
 
 ## 根目录下只有一个 `/trans`
 
-ext4 的根目录一开始只有 `/trans`（加上 mkfs 自带的 `lost+found`）。没有 `/bin`、`/etc`、
-`/usr`、`/dev`、`/proc`、`/tmp`、`/root`——目录结构怎么长，完全由用户决定。
+ext4 的根目录一开始只有 `/trans`（加上 mkfs 自带的 `lost+found`）。没有写在盘上的 `/bin`、`/etc`、
+`/usr`——这些在进程里由 realinit 从 `/trans` 绑出来（所以 `/bin/sh`、`/usr/bin/gcc` 能用），不落在用户盘根上。目录结构怎么长，完全由用户决定。
 
 `/trans` 是 trans-cli（也就是你）的家，realinit 只认这一个目录：
 
@@ -33,8 +33,15 @@ ext4 的根目录一开始只有 `/trans`（加上 mkfs 自带的 `lost+found`�
 | realinit | PID 1，在内置 initramfs 里 | 开机、联网、中文帧缓冲终端、读 `/trans/init` 弹菜单 |
 | DNS | realinit 在 `127.0.0.1:53` 转发 | 没有 `/etc/resolv.conf` 时程序默认就会问 127.0.0.1，所以开箱能解析域名 |
 
-**没有的东西**：编译器、包管理器、动态链接库（glibc/musl 都没有）、`/usr`、桌面、浏览器、
-声音、中文输入法、剪贴板、FAT32 支持。这些都等着你来造或者引入——怎么做由用户决定。
+**已经有的工具链**（都在 `/trans` 里，开机绑到 `/usr` `/lib` `/etc`，盘上根目录仍然只有 `/trans`）：
+
+| 路径 | 说明 |
+|------|------|
+| `/usr/bin/gcc` `/usr/bin/g++` | 编 C / C++ |
+| `/usr/bin/make` `/usr/bin/cmake` `/usr/bin/ninja` | 构建 |
+| `/usr/include` `/usr/lib` | 头文件和库（zlib、OpenSSL、ncurses、curl、sqlite、libpng、pcre2、libxml2 等） |
+
+**还没有的东西**：桌面、浏览器、声音、中文输入法、剪贴板、FAT32。这些等你来造或者引入。
 
 ## 真机怎么上网
 
@@ -91,7 +98,7 @@ GPT
 
 ## 环境变量
 
-`HOME=/trans`、`PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/trans/bin`、
+`HOME=/trans`、`PATH=/usr/bin:/usr/sbin:/usr/local/bin:/trans/usr/bin:/trans/bin:/bin:/sbin`、
 `SSL_CERT_FILE=/trans/certs/ca-certificates.crt`、`XDG_CONFIG_HOME=/trans/config`、
 `TERM=xterm-256color`、`LANG=C.UTF-8`、`REALIOS=1`、`REALIOS_ROOT=ext4|emergency`、
 `TRANS_WORKSPACE=/`、`TRANS_TOOLS=on`。程序的工作目录是 `/`。

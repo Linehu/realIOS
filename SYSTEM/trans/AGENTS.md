@@ -25,7 +25,7 @@
 
 ## 工具
 
-`PATH` 里有 `/trans/bin`（busybox）。没有编译器、包管理器、动态库、桌面、浏览器、输入法——这些都等你来造或引入。
+`PATH` 里有 `/usr/bin`（gcc、g++、make、cmake）和 `/bin`（busybox，`/bin/sh` 可用）。头文件和库在 `/usr/include`、`/usr/lib`。还没有桌面、浏览器、输入法。可以在这台机器上直接编译，不要假装 `/bin/sh` 不存在。
 
 ## 网络
 

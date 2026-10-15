@@ -3,51 +3,34 @@ setlocal enabledelayedexpansion
 
 set "SCRIPT_DIR=%~dp0"
 
-REM ===== Image variant: dev / release =====
-REM Priority: argument > QEMU_VARIANT env > interactive menu > default dev
 REM Usage: run_qemu.bat [dev|release]
-set "VARIANT="
-if not "%~1"=="" set "VARIANT=%~1"
-if not defined VARIANT if defined QEMU_VARIANT set "VARIANT=%QEMU_VARIANT%"
-if not defined VARIANT (
-    echo [qemu] Select image variant to boot:
-    echo   1. dev      ^(realios-dev.img, kernel log + screen mirrored to this console^)
-    echo   2. release  ^(realios-release.img, quiet boot^)
-    set /p CHOICE="Choice [1-2, Enter=dev]: "
-    if "!CHOICE!"=="2" set "VARIANT=release"
-    if not defined VARIANT set "VARIANT=dev"
-)
+set "VARIANT=%~1"
+if not defined VARIANT set "VARIANT=%QEMU_VARIANT%"
+if not defined VARIANT set "VARIANT=dev"
 if "%VARIANT%"=="1" set "VARIANT=dev"
 if "%VARIANT%"=="2" set "VARIANT=release"
-if not "%VARIANT%"=="dev" if not "%VARIANT%"=="release" (
-    echo [qemu] Unknown variant: %VARIANT% ^(expected dev / release^)
+if /I not "%VARIANT%"=="dev" if /I not "%VARIANT%"=="release" (
+    echo [qemu] Unknown variant: %VARIANT%  ^(use: run_qemu.bat dev  or  run_qemu.bat release^)
+    pause
     exit /b 1
 )
 
 set "IMG=%SCRIPT_DIR%realios-%VARIANT%.img"
 if not exist "%IMG%" (
     echo [qemu] Image not found: %IMG%
-    echo [qemu] Run ..\build.bat first ^(or: build.bat -Variant %VARIANT%^)
+    echo [qemu] Run ..\build.bat first
+    pause
     exit /b 1
 )
 
-REM QEMU_SERIAL_LOG=path : write serial to a file instead of stdio
-set "SERIAL_ARGS=-serial stdio"
-if defined QEMU_SERIAL_LOG (
-    if exist "%QEMU_SERIAL_LOG%" del "%QEMU_SERIAL_LOG%"
-    set "SERIAL_ARGS=-serial file:%QEMU_SERIAL_LOG%"
-)
-
 set "QEMU="
-for %%Q in (qemu-system-x86_64.exe) do (
-    for /f "delims=" %%P in ('where %%Q 2^>nul') do (
-        if not defined QEMU set "QEMU=%%P"
-    )
+for /f "delims=" %%P in ('where qemu-system-x86_64.exe 2^>nul') do (
+    if not defined QEMU set "QEMU=%%P"
 )
 if not defined QEMU if exist "C:\Program Files\qemu\qemu-system-x86_64.exe" set "QEMU=C:\Program Files\qemu\qemu-system-x86_64.exe"
-if not defined QEMU if exist "C:\msys64\ucrt64\bin\qemu-system-x86_64.exe" set "QEMU=C:\msys64\ucrt64\bin\qemu-system-x86_64.exe"
 if not defined QEMU (
-    echo [qemu] qemu-system-x86_64 was not found. Install QEMU or add it to PATH.
+    echo [qemu] qemu-system-x86_64 was not found.
+    pause
     exit /b 1
 )
 
@@ -55,25 +38,41 @@ set "OVMF="
 if exist "C:\Program Files\qemu\share\edk2-x86_64-code.fd" set "OVMF=C:\Program Files\qemu\share\edk2-x86_64-code.fd"
 if not defined OVMF if exist "C:\Program Files\qemu\share\OVMF_CODE.fd" set "OVMF=C:\Program Files\qemu\share\OVMF_CODE.fd"
 if not defined OVMF (
-    echo [qemu] UEFI firmware ^(edk2-x86_64-code.fd / OVMF_CODE.fd^) was not found.
+    echo [qemu] UEFI firmware not found.
+    pause
     exit /b 1
 )
 
-REM QEMU_ACCEL=whpx / tcg (default whpx), QEMU_MEM default 4G
-if not defined QEMU_ACCEL set "QEMU_ACCEL=whpx"
-if not defined QEMU_MEM set "QEMU_MEM=4G"
+if not defined QEMU_MEM set "QEMU_MEM=2G"
+set "LOG=%SCRIPT_DIR%qemu-last.log"
 
 echo [qemu] Using: %QEMU%
-echo [qemu] UEFI:  %OVMF%
 echo [qemu] Image: %IMG%
-echo [qemu] Accel: %QEMU_ACCEL%   RAM: %QEMU_MEM%
-echo [qemu] F12 inside realIOS returns to the realinit menu.
+echo [qemu] RAM:   %QEMU_MEM%
+echo [qemu] 请等窗口出现（硬件加速失败会自动改用慢速模式）。
+echo [qemu] 不要关这个黑窗口，关掉虚拟机也会退出。
+echo [qemu] release: run_qemu.bat release
 
-REM OS disk on the q35 built-in AHCI (same driver path as real SATA); e1000 + user-mode net (QEMU serves DHCP)
-"%QEMU%" -accel %QEMU_ACCEL% -machine q35 -m %QEMU_MEM% -smp 2 -cpu qemu64 %SERIAL_ARGS% ^
-    -drive if=pflash,format=raw,readonly=on,file="%OVMF%" ^
-    -drive if=none,id=osdisk,format=raw,file="%IMG%" -device ide-hd,drive=osdisk,bus=ide.0,bootindex=1 ^
-    -netdev user,id=net0 -device e1000,netdev=net0 ^
-    -vga std
+set "RC=1"
 
-endlocal
+echo [qemu] try WHPX + gtk
+"%QEMU%" -accel whpx -display gtk -machine q35 -m %QEMU_MEM% -smp 2 -cpu qemu64 -vga std -serial stdio -netdev user,id=net0 -device e1000,netdev=net0 -drive if=pflash,format=raw,readonly=on,file="%OVMF%" -drive if=none,id=osdisk,format=raw,file="%IMG%" -device ide-hd,drive=osdisk,bus=ide.0,bootindex=1 2>"%LOG%"
+set "RC=!ERRORLEVEL!"
+if "!RC!"=="0" goto :eof
+
+echo [qemu] try TCG + gtk
+"%QEMU%" -accel tcg -display gtk -machine q35 -m %QEMU_MEM% -smp 2 -cpu qemu64 -vga std -serial stdio -netdev user,id=net0 -device e1000,netdev=net0 -drive if=pflash,format=raw,readonly=on,file="%OVMF%" -drive if=none,id=osdisk,format=raw,file="%IMG%" -device ide-hd,drive=osdisk,bus=ide.0,bootindex=1 2>"%LOG%"
+set "RC=!ERRORLEVEL!"
+if "!RC!"=="0" goto :eof
+
+echo [qemu] try TCG + sdl
+"%QEMU%" -accel tcg -display sdl -machine q35 -m %QEMU_MEM% -smp 2 -cpu qemu64 -vga std -serial stdio -netdev user,id=net0 -device e1000,netdev=net0 -drive if=pflash,format=raw,readonly=on,file="%OVMF%" -drive if=none,id=osdisk,format=raw,file="%IMG%" -device ide-hd,drive=osdisk,bus=ide.0,bootindex=1 2>"%LOG%"
+set "RC=!ERRORLEVEL!"
+if "!RC!"=="0" goto :eof
+
+echo [qemu] QEMU exited with error !RC!
+echo [qemu] ----- %LOG% -----
+type "%LOG%"
+echo [qemu] --------------------
+pause
+exit /b !RC!

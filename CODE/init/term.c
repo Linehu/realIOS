@@ -1051,6 +1051,26 @@ static int prepare_chroot(const char *root)
         closedir(d);
     }
 
+    /* /trans/usr /trans/lib /trans/etc 只存在于盘上的 /trans 里；
+     * 绑到 chroot 的 /usr /lib /etc，gcc 才能找到头文件和动态链接器。不往用户盘根上建目录。 */
+    {
+        static const char *pairs[][2] = {
+            {TRANS_DIR "/usr", "/run/merged/usr"},
+            {TRANS_DIR "/lib", "/run/merged/lib"},
+            {TRANS_DIR "/etc", "/run/merged/etc"},
+            {TRANS_BINDIR, "/run/merged/bin"},
+        };
+        for (size_t i = 0; i < sizeof(pairs) / sizeof(pairs[0]); i++) {
+            char src[512];
+            snprintf(src, sizeof(src), "%s%s", root, pairs[i][0]);
+            if (!path_exists(src))
+                continue;
+            mkdir(pairs[i][1], 0755);
+            if (mount(src, pairs[i][1], NULL, MS_BIND | MS_REC, NULL) < 0)
+                dprintf(2, "realinit: bind %s: %s\r\n", src, strerror(errno));
+        }
+    }
+
     mkdir("/run/merged/proc", 0555);
     mkdir("/run/merged/sys", 0555);
     mkdir("/run/merged/dev", 0755);

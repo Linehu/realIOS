@@ -58,6 +58,37 @@ if ($Force -or -not (Test-Path $certOut)) {
     Write-Host "[deps] ca-certificates.crt"
 }
 
-Get-ChildItem -Recurse -File $Trans | ForEach-Object {
+# ---- Alpine apk-tools-static：给 install_cc.sh 装 gcc/g++ 和开发库 ----
+$apkIndex = "$Tmp\APKINDEX.tar.gz"
+$apkStatic = "$Tmp\apk-tools-static.apk"
+$alpineVer = 'v3.21'
+$mirror = "https://dl-cdn.alpinelinux.org/alpine/$alpineVer/main/x86_64"
+if ($Force -or -not (Test-Path $apkIndex)) {
+    curl.exe -fL --retry 5 -o $apkIndex "$mirror/APKINDEX.tar.gz"
+    if ($LASTEXITCODE -ne 0) { throw 'APKINDEX 下载失败' }
+}
+if ($Force -or -not (Test-Path $apkStatic)) {
+    $idxDir = Join-Path $Tmp 'apkindex'
+    New-Item -ItemType Directory -Force $idxDir | Out-Null
+    tar.exe -xf $apkIndex -C $idxDir
+    $idxText = Get-Content -Raw (Join-Path $idxDir 'APKINDEX')
+    $ver = $null
+    $inPkg = $false
+    foreach ($line in ($idxText -split "`n")) {
+        $line = $line.Trim()
+        if ($line -eq 'P:apk-tools-static') { $inPkg = $true; continue }
+        if ($inPkg -and $line.StartsWith('P:')) { $inPkg = $false }
+        if ($inPkg -and $line.StartsWith('V:')) { $ver = $line.Substring(2).Trim() }
+        if ($inPkg -and $line -eq '') { break }
+    }
+    if (-not $ver) { throw 'APKINDEX 里找不到 apk-tools-static' }
+    curl.exe -fL --retry 5 -o $apkStatic "$mirror/apk-tools-static-$ver.apk"
+    if ($LASTEXITCODE -ne 0) { throw "apk-tools-static-$ver 下载失败" }
+    Write-Host "[deps] apk-tools-static $ver"
+}
+
+Get-ChildItem -Recurse -File $Trans | Where-Object {
+    $_.FullName -notmatch '\\usr\\|\\lib\\|\\etc\\'
+} | ForEach-Object {
     '{0,10}  {1}' -f $_.Length, $_.FullName.Substring($Root.Length + 1)
 }

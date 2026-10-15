@@ -153,7 +153,10 @@ static void build_env(char **envp, char store[][160], int *n)
 {
     static const char *fixed[] = {
         "HOME=" TRANS_DIR, "USER=root", "LOGNAME=root", "SHELL=" TRANS_SH,
-        "PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:" TRANS_BINDIR,
+        "PATH=/usr/bin:/usr/sbin:/usr/local/bin:" TRANS_DIR "/usr/bin:" TRANS_BINDIR ":/bin:/sbin",
+        "PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/share/pkgconfig",
+        "C_INCLUDE_PATH=/usr/include",
+        "LIBRARY_PATH=/usr/lib",
         "SSL_CERT_FILE=" TRANS_CERTS, "XDG_CONFIG_HOME=" TRANS_CONFIG,
         "TERM=xterm-256color", "COLORTERM=truecolor", "LANG=C.UTF-8", "LC_ALL=C.UTF-8",
         "REALIOS=1", "REALIOS_VERSION=" REALIOS_VERSION,

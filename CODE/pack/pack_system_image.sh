@@ -52,6 +52,16 @@ for child in "$SYSTEM"/*; do
     fi
 done
 shopt -u dotglob nullglob
+CC_PREFIX=""
+for cand in "${REALIOS_KBUILD:-}/cc/prefix" \
+            /home/deshab/.realios-build/cc/prefix \
+            "$HOME/.realios-build/cc/prefix"; do
+    [[ -n "$cand" && -d "$cand/usr" && -d "$cand/lib" ]] && { CC_PREFIX="$cand"; break; }
+done
+if [[ -n "$CC_PREFIX" ]]; then
+    rest_content=$((rest_content + $(bytes_of "$CC_PREFIX")))
+    log "工具链：$CC_PREFIX"
+fi
 
 MIB=$((1024 * 1024))
 # ESP 固定 256MiB：配合 -s 4（2KiB 簇）得到 131072 个簇，远离 FAT32 的 65525 下限与 0xFFF5 边界
@@ -134,24 +144,34 @@ for child in "$SYSTEM"/*; do
 done
 shopt -u dotglob nullglob
 
+if [[ -n "$CC_PREFIX" && -d "$CC_PREFIX/usr" ]]; then
+    log "合并工具链 $CC_PREFIX → /trans"
+    mkdir -p "$MNT_EXT/trans"
+    rsync -a --chown=0:0 "$CC_PREFIX/usr" "$CC_PREFIX/lib" "$MNT_EXT/trans/"
+    [[ -d "$CC_PREFIX/etc" ]] && rsync -a --chown=0:0 "$CC_PREFIX/etc" "$MNT_EXT/trans/"
+fi
+
 # /mnt/d 上的文件权限都是 777，这里按用途重设
 if [[ -d "$MNT_EXT/trans" ]]; then
     T="$MNT_EXT/trans"
     find "$T" -type d -exec chmod 755 {} +
-    find "$T" -type f -exec chmod 644 {} +
+    find "$T" -path "$T/usr" -prune -o -path "$T/lib" -prune -o -type f -exec chmod 644 {} +
     chmod 755 "$T/trans"
     [[ -f "$T/bin/busybox" ]] && chmod 755 "$T/bin/busybox" && ln -sfn busybox "$T/bin/sh"
+    [[ -d "$T/usr/bin" ]] && find "$T/usr/bin" "$T/usr/sbin" "$T/lib" "$T/usr/lib" -type f \( -perm /111 -o -name '*.so*' \) -exec chmod 755 {} + 2>/dev/null || true
+    [[ -d "$T/usr/bin" ]] && find "$T/usr/bin" "$T/usr/sbin" -type f -exec chmod 755 {} +
     mkdir -p "$T/config"
     chmod 700 "$T/config"
 fi
 
 log "ext4 根目录：$(ls -A "$MNT_EXT" | tr '\n' ' ')"
-log "/trans：$(cd "$MNT_EXT/trans" && find . -mindepth 1 | sort | tr '\n' ' ')"
+log "/trans：$(cd "$MNT_EXT/trans" && ls -A | tr '\n' ' ')"
 
 sync
-umount "$MNT_ESP"
-umount "$MNT_EXT"
-losetup -d "$LOOP"
+umount "$MNT_ESP" || umount -l "$MNT_ESP" || true
+umount "$MNT_EXT" || umount -l "$MNT_EXT" || true
+sleep 1
+losetup -d "$LOOP" || true
 LOOP=""
 
 cp --sparse=always "$IMG" "$OUT"

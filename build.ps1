@@ -54,6 +54,7 @@ if (-not (Test-Path $wpaTar)) {
     if ($LASTEXITCODE -ne 0) { throw 'wpa_supplicant 源码下载失败' }
 }
 Invoke-Wsl 'Building wpa_supplicant...' @('-e', 'bash', "$wRoot/CODE/deps/build_wpa.sh", $wRoot)
+Invoke-Wsl 'Installing gcc/g++ and libraries into /trans...' @('-e', 'bash', "$wRoot/CODE/deps/install_cc.sh", $wRoot)
 
 # ---- 2. realinit（PID 1）----
 Invoke-Wsl 'Building realinit...' @('-e', 'make', '-s', '-C', "$wRoot/CODE/init", '-f', 'MAKEFILE')
