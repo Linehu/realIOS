@@ -1,0 +1,14 @@
+# /trans/init —— realIOS 开机读这个文件决定运行什么。
+#
+# 现在它是"空"的（只有注释），所以开机直接进入 trans-cli。
+#
+# 写上程序后，开机会弹出菜单，让你在 trans-cli 和这些程序之间选择
+# （trans-cli 永远是第一项，F12 随时回到菜单，开机按 S 进安全模式）：
+#
+#   名称 | 命令行 [| direct]
+#   我的 Shell | /trans/bin/sh -l
+#   我的桌面   | /usr/local/bin/desktop | direct     ← direct：程序直接接管屏幕和键盘
+#   @timeout=5                                       ← 菜单倒计时（秒），0 = 一直等
+#   @default=1                                       ← 倒计时结束运行第几项，0 = trans-cli
+#
+# 也可以把 /trans/init 换成一个可执行文件，或者一个装满可执行文件的目录。

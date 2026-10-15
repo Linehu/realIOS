@@ -1,0 +1,23 @@
+# realboot — realIOS 的 UEFI 引导程序（内核整个嵌在里面）
+# 用法（WSL / Linux）：make -f MAKEFILE KERNEL=../../.build_tmp/vmlinuz.efi OUT=../../SYSTEM/EFI/BOOT/BOOTX64.EFI
+
+CC      ?= clang
+LD      := lld-link
+KERNEL  ?= ../../.build_tmp/vmlinuz.efi
+OUT     ?= ../../SYSTEM/EFI/BOOT/BOOTX64.EFI
+OBJ     := ../../.build_tmp/realboot.obj
+
+CFLAGS  := -target x86_64-unknown-windows -ffreestanding -fshort-wchar -mno-red-zone \
+           -fno-stack-protector -fno-builtin -O2 -Wall -Wextra -std=c11 \
+           -DKERNEL_PATH='"$(abspath $(KERNEL))"'
+LDFLAGS := /subsystem:efi_application /entry:efi_main /nodefaultlib /machine:x64
+
+$(OUT): realboot.c efi.h MAKEFILE $(KERNEL)
+	@mkdir -p $(dir $(OUT)) $(dir $(OBJ))
+	clang $(CFLAGS) -c realboot.c -o $(OBJ)
+	$(LD) $(LDFLAGS) /out:$@ $(OBJ)
+
+clean:
+	rm -f $(OUT) $(OBJ)
+
+.PHONY: clean

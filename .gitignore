@@ -1,0 +1,10 @@
+.build_tmp/
+ISO/*.img
+ISO/*.img.zst
+ISO/*.img.xz
+CODE/kernel/linux-6.6/
+CODE/kernel/*.tar.xz
+CODE/kernel/*.tar.gz
+SYSTEM/realIOS/apikey.txt
+apikey.txt
+*.img
